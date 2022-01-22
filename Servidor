@@ -1,0 +1,77 @@
+import pickle
+import re
+import socket, psutil, cpuinfo, os, time
+
+
+mem = psutil.virtual_memory()
+mem_lista = []
+text = '\nMemoria Total: {}'.format(mem.total/(1024*1024*1024))
+text += '\nMemoria Usada: {}'.format(mem.used/(1024*1024*1024))
+mem_lista.append(text)
+
+
+
+
+cpu_info = []
+cpu = cpuinfo.get_cpu_info()
+cpu_porcentagem_por_nucleo = psutil.cpu_percent(interval=1, percpu=True)
+cpu_info.append('Arquitetura: ' + str(cpu['arch']))
+cpu_info.append('Modelo da CPU: ' + str(cpu['brand_raw']))
+cpu_info.append('Palavra: ' + str(cpu['bits']))
+cpu_info.append('Frequência total: ' + str(cpu['hz_advertised']))
+cpu_info.append('Frequência de uso: ' + str(cpu['hz_actual']))
+cpu_info.append('Número de núcleos lógicos: ' + str(cpu['count']))
+cpu_info.append('Número de núcleos físicos: ' +  str(psutil.cpu_count(logical=False)))
+cpu_info.append('Porcentagem: ' + str(cpu_porcentagem_por_nucleo))
+
+
+
+socket_servidor = socket.socket()
+socket_servidor.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+
+host = socket.gethostname()
+porta = 9999
+
+
+socket_servidor.bind((host, porta))
+
+socket_servidor.listen()
+print("Servidor", host, "esperando conexão na porta", porta)
+
+(socket_cliente,addr) = socket_servidor.accept()
+print("Conectado a:", str(addr))
+
+while True:
+    info = ("\n 1 - Informações sobre o processador \n 2 - Informações sobre a memória  \n Pressione $ para encerrar a conexão")
+    socket_cliente.send(info.encode('utf-8'))
+    msg = socket_cliente.recv(1024)
+    print(msg)
+    if '$' == msg.decode('UTF-8'):
+        info = ('Conexão encerrada')
+        socket_cliente.send(info.encode('utf-8'))
+        print("Fechando conexao com", str(addr))
+        for x in range(0,3):
+            print('.')
+            time.sleep(1)
+        socket_cliente.close()
+        break
+    if '1' == msg.decode('UTF-8'):
+        info1 =('Usuario solicitou Informações sobre o processador')
+        bytes = pickle.dumps(cpu_info)
+        socket_cliente.send(bytes)
+        print(info1)
+        break
+    if '2' == msg.decode('UTF-8'):
+        info2 = ('Usuario solicitou Informações sobre Memoria')
+        bytes = pickle.dumps(mem_lista)
+        socket_cliente.send(bytes)
+        print(info2)
+        break
+    else:
+        dif =('O usuário Digitou opções invalidas.')
+        socket_cliente.send(dif.encode('utf-8')) 
+        socket_cliente.send(info.encode('utf-8')) 
+        print('O usuário Digitou opções invalidas.')
+        break
+socket_servidor.close()
